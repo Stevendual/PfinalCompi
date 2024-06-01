@@ -1,10 +1,9 @@
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CodeAnalyzer implements ActionListener {
     private JTextField codeInput;
@@ -63,8 +62,8 @@ public class CodeAnalyzer implements ActionListener {
         result.append("Lenguaje identificado: ").append(language).append("\n");
 
         result.append("Palabras reservadas: ").append(findReservedWords(code, language)).append("\n");
-        result.append("Expresiones lógicas: ").append(findLogicalExpressions(code, language)).append("\n");
-        result.append("Expresiones matemáticas: ").append(findMathematicalExpressions(code, language)).append("\n");
+        result.append("Expresiones lógicas: ").append(findLogicalExpressions(code)).append("\n");
+        result.append("Expresiones matemáticas: ").append(findAllMathematicalExpressions(code)).append("\n");
         result.append("Variables: ").append(findVariables(code, language)).append("\n");
         result.append("Constantes: ").append(findConstants(code, language)).append("\n");
         result.append("Funciones: ").append(findFunctions(code, language)).append("\n");
@@ -116,36 +115,47 @@ public class CodeAnalyzer implements ActionListener {
         return foundKeywords.toString().trim();
     }
 
-    private String findLogicalExpressions(String code, String language) {
-        // Implementación básica para encontrar expresiones lógicas
-        if (code.contains("&&") || code.contains("||") || code.contains("==") || code.contains("!=") || code.contains("<") || code.contains(">")) {
-            return code;
+    private List<String> findLogicalExpressions(String code) {
+        List<String> logicalExpressions = new ArrayList<>();
+        String regex = "(&&)|(\\|\\|)|(==)|(!=)|(<)|(>)";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(code);
+
+        while (matcher.find()) {
+            logicalExpressions.add(matcher.group());
         }
-        return "";
+
+        return logicalExpressions;
     }
 
-    private String findMathematicalExpressions(String code, String language) {
-        // Implementación básica para encontrar expresiones matemáticas
-        if (code.matches(".\\d+\\s[-+/]\\s\\d+.*")) {
-            return code;
+    private List<String> findAllMathematicalExpressions(String code) {
+        Pattern pattern = Pattern.compile("(-?\\d+\\.?\\d*)\\s*([-+*/()])\\s*(-?\\d+\\.?\\d*)");
+        Matcher matcher = pattern.matcher(code);
+
+        List<String> matches = new ArrayList<>();
+        while (matcher.find()) {
+            matches.add(matcher.group());
         }
-        return "";
+
+        return matches;
     }
 
     private String findVariables(String code, String language) {
-        // Implementación básica para encontrar variables
+        // Implementación extendida para encontrar variables en diferentes lenguajes
         switch (language) {
             case "PL/SQL":
             case "T-SQL":
-                return code.matches(".\\b[A-Za-z_][A-Za-z0-9_]\\b.*") ? code : "";
+                return code.matches("\\bdeclare\\s+@\\w+") ? code : "";
             case "C++":
-                return code.matches(".\\bint\\b.|.\\bfloat\\b.|.\\bchar\\b.") ? code : "";
+                return code.matches("\\b(auto|int|float|double|bool|char|wchar_t)\\b\\s+\\w+;") ? code : "";
             case "Pascal":
-                return code.matches(".\\bvar\\b.") ? code : "";
+                return code.matches("\\b(var)\\b\\s+\\w+\\s*:\\s*\\w+;") ? code : "";
             case "JavaScript":
-                return code.matches(".\\bvar\\b.|.\\blet\\b.|.\\bconst\\b.") ? code : "";
+                return code.matches("\\b(var|let|const)\\b\\s+\\w+;") ? code : "";
             case "Python":
-                return code.matches(".\\b[A-Za-z_][A-Za-z0-9_]\\b.*") ? code : "";
+                return code.matches("\\b\\w+\\s*=\\s*") ? code : "";
+            case "Java":
+                return code.matches("\\b(public|protected|private|static|final)\\s+\\w+\\s+\\w+;") ? code : "";
             default:
                 return "";
         }
