@@ -63,7 +63,7 @@ public class CodeAnalyzer implements ActionListener {
 
         result.append("Palabras reservadas: ").append(findReservedWords(code, language)).append("\n");
         result.append("Expresiones lógicas: ").append(findLogicalExpressions(code)).append("\n");
-        result.append("Expresiones matemáticas: ").append(findAllMathematicalExpressions(code)).append("\n");
+        result.append("Expresiones matemáticas: ").append(findAllMathematicalExpressions(code, language)).append("\n");
         result.append("Variables: ").append(findVariables(code, language)).append("\n");
         result.append("Constantes: ").append(findConstants(code, language)).append("\n");
         result.append("Funciones: ").append(findFunctions(code, language)).append("\n");
@@ -86,19 +86,20 @@ public class CodeAnalyzer implements ActionListener {
     }
 
     private String identifyLanguage(String code) {
-        if (code.contains("CREATE TABLE")|| code.contains("SELECT") || code.contains("INSERT") || code.contains("UPDATE") || code.contains("DELETE")) {
+        // Simplificación de la identificación de lenguaje con expresiones regulares
+        if (code.matches(".*\\bCREATE\\s+TABLE\\b.*")) {
             return "PL/SQL";
-        } else if (code.contains("SELECT")) {
+        } else if (code.matches(".*\\bSELECT\\b.*") || code.matches(".*\\bINSERT\\b.*") || code.matches(".*\\bUPDATE\\b.*") || code.matches(".*\\bDELETE\\b.*")) {
             return "T-SQL";
-        } else if (code.contains("#include")|| code.contains("cout") || code.contains("cin")) {
+        } else if (code.matches(".*#include.*") || code.matches(".*\\bcout\\b.*") || code.matches(".*\\bcin\\b.*")) {
             return "C++";
-        } else if (code.contains("program")) {
+        } else if (code.matches(".*\\bprogram\\b.*") || code.matches(".*\\bbegin\\b.*") || code.matches(".*\\bend\\b.*")) {
             return "Pascal";
-        } else if (code.contains("function")) {
+        } else if (code.matches(".*\\bfunction\\b.*") || code.matches(".*\\bdebugger\\b.*") || code.matches(".*\\bextends\\b.*")) {
             return "JavaScript";
-        } else if (code.contains("<html>")) {
+        } else if (code.matches(".*<html>.*") || code.matches(".*<body>.*") || code.matches(".*<script>.*")) {
             return "HTML";
-        } else if (code.contains("def")) {
+        } else if (code.matches(".*\\bdef\\b.*") || code.matches(".*\\breturn\\b.*") || code.matches(".*\\bimport\\b.*")) {
             return "Python";
         }
         return null;
@@ -128,61 +129,74 @@ public class CodeAnalyzer implements ActionListener {
         return logicalExpressions;
     }
 
-    private List<String> findAllMathematicalExpressions(String code) {
-        Pattern pattern = Pattern.compile("(-?\\d+\\.?\\d*)\\s*([-+*/()])\\s*(-?\\d+\\.?\\d*)");
-        Matcher matcher = pattern.matcher(code);
+    private List<String> findAllMathematicalExpressions(String code, String language) {
+        List<String> variables = Arrays.asList(findVariables(code, language).split(",\\s"));
+        String variablePattern = String.join("|", variables);
 
+        Pattern pattern = Pattern.compile("((?<=\\s)|(?<=^))((" + variablePattern + ")|(-?\\d+\\.?\\d*))(?:\\s*[-+*/()]\\s*((" + variablePattern + ")|(-?\\d+\\.?\\d*)))*(?=(\\s|$))");
+        Matcher matcher = pattern.matcher(code);
         List<String> matches = new ArrayList<>();
         while (matcher.find()) {
             matches.add(matcher.group());
         }
-
         return matches;
     }
 
     private String findVariables(String code, String language) {
-        // Implementación extendida para encontrar variables en diferentes lenguajes
+        Pattern pattern = null;
         switch (language) {
             case "PL/SQL":
             case "T-SQL":
-                return code.matches("\\bdeclare\\s+@\\w+") ? code : "";
+                pattern = Pattern.compile("\\bdeclare\\s+@\\w+");
+                break;
             case "C++":
-                return code.matches("\\b(auto|int|float|double|bool|char|wchar_t)\\b\\s+\\w+;") ? code : "";
+                pattern = Pattern.compile("\\b(auto|int|float|double|bool|char|wchar_t)\\b\\s+\\w+;");
+                break;
             case "Pascal":
-                return code.matches("\\b(var)\\b\\s+\\w+\\s*:\\s*\\w+;") ? code : "";
+                pattern = Pattern.compile("\\b(var)\\b\\s+\\w+\\s*:\\s*\\w+;");
+                break;
             case "JavaScript":
-                return code.matches("\\b(var|let|const)\\b\\s+\\w+;") ? code : "";
+                pattern = Pattern.compile("\\b(var|let|const)\\b\\s+\\w+;");
+                break;
             case "Python":
-                return code.matches("\\b\\w+\\s*=\\s*") ? code : "";
+                pattern = Pattern.compile("\\b\\w+\\s*=\\s*.*;");
+                break;
             case "Java":
-                return code.matches("\\b(public|protected|private|static|final)\\s+\\w+\\s+\\w+;") ? code : "";
+                pattern = Pattern.compile("\\b(public|protected|private|static|final)\\s+\\w+\\s+\\w+;");
+                break;
             default:
                 return "";
         }
+        Matcher matcher = pattern.matcher(code);
+        StringBuilder matchedVariables = new StringBuilder();
+        while(matcher.find()){
+            matchedVariables.append(matcher.group()).append(" ");
+        }
+        return matchedVariables.toString();
     }
 
     private String findConstants(String code, String language) {
         // Implementación básica para encontrar constantes
-        if (code.matches(".\\bconst\\b.") || code.matches(".\\bfinal\\b.")) {
+        if (code.matches(".*\\bconst\\b.*") || code.matches(".*\\bfinal\\b.*")) {
             return code;
         }
         return "";
     }
 
     private String findFunctions(String code, String language) {
-        // Implementación básica para encontrar funciones
+        // Implementación mejorada para encontrar funciones
         switch (language) {
             case "PL/SQL":
             case "T-SQL":
-                return code.matches(".\\bSELECT\\b.|.\\bINSERT\\b.|.\\bUPDATE\\b.|.\\bDELETE\\b.") ? code : "";
+                return code.matches("(\\bCREATE\\s+FUNCTION\\b)|(\\bCREATE\\s+PROCEDURE\\b)") ? code : "";
             case "C++":
-                return code.matches(".\\bvoid\\b.|.\\bint\\b.\\(.\\).") ? code : "";
+                return code.matches("\\b((auto|int|float|double|void|string|char)\\s+\\w+\\(.*\\)|\\w+::~\\w+\\(\\))\\s*") ? code : "";
             case "Pascal":
-                return code.matches(".\\bfunction\\b.|.\\bprocedure\\b.") ? code : "";
+                return code.matches("\\b(function|procedure)\\b\\s+\\w+\\(.*\\)\\s*") ? code : "";
             case "JavaScript":
-                return code.matches(".\\bfunction\\b.") ? code : "";
+                return code.matches("\\b(function|async\\s+function)\\b\\s*\\w*\\(.*\\)|\\b\\w+\\s*=\\s*\\(.*\\)\\s*=>") ? code : "";
             case "Python":
-                return code.matches(".\\bdef\\b.") ? code : "";
+                return code.matches("\\bdef\\b\\s+\\w+\\(.*\\):") ? code : "";
             default:
                 return "";
         }
@@ -191,7 +205,7 @@ public class CodeAnalyzer implements ActionListener {
     private String findClasses(String code, String language) {
         // Implementación básica para encontrar clases
         if (language.equals("C++") || language.equals("JavaScript") || language.equals("Python")) {
-            return code.matches(".\\bclass\\b.") ? code : "";
+            return code.matches(".*\\bclass\\b.*") ? code : "";
         }
         return "";
     }
@@ -213,11 +227,16 @@ public class CodeAnalyzer implements ActionListener {
     }
 
     private String findCRUDOperations(String code, String language) {
-        // Implementación básica para encontrar operaciones CRUD
-        if (code.contains("CREATE") || code.contains("READ") || code.contains("UPDATE") || code.contains("DELETE")) {
-            return code;
+        StringBuilder crudCode = new StringBuilder();
+        String[] lines = code.split("\n");
+
+        for (String line : lines) {
+            if (line.contains("CREATE") || line.contains("READ") || line.contains("UPDATE") || line.contains("DELETE")) {
+                crudCode.append(line).append("\n");
+            }
         }
-        return "";
+
+        return crudCode.toString();
     }
 
     private String performLexicalAnalysis(String code, String language) {
