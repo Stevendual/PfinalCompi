@@ -5,9 +5,7 @@ public class Main {
         SwingUtilities.invokeLater(() -> {
             CodeAnalyzer analyzer = new CodeAnalyzer();
             analyzer.setVisible(true);
-
-
-
-    });
-    }
+   });
 }
+}
+
